@@ -1295,6 +1295,41 @@ body.dark-mode .status-offline { background-color: #374151; color: #9ca3af; }
 .profile-subview { animation: fadeIn 0.3s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
       
+    #mobile-blocker {
+        display: none; /* Hidden by default on desktop */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: var(--page-bg);
+        z-index: 2147483647; /* Max z-index to cover everything */
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 40px;
+      }
+
+      /* Trigger on screens narrower than 768px (Standard Phones/Tablets) */
+      @media (max-width: 768px) {
+        /* Force hide the app interface */
+        header, .app-container, footer, #app-loader, .modal-backdrop, .modal {
+          display: none !important;
+        }
+        
+        /* Show the blocker */
+        #mobile-blocker {
+          display: flex !important;
+        }
+        
+        /* Disable scrolling on body */
+        body {
+          overflow: hidden !important;
+        }
+      }
+      /* [END] NEW: Mobile Restriction Styles */
+
     </style>
   </head>
   
@@ -1310,6 +1345,16 @@ body.dark-mode .status-offline { background-color: #374151; color: #9ca3af; }
   ==================================================================
   -->
   <body>
+    <div id="mobile-blocker">
+      <div class="logo-container" style="margin-bottom: 24px; width: 180px; height: 60px; background: #fff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+          <img class="header-logo" src="https://image2url.com/images/1762976595272-13dc7db5-88f2-48e6-bffb-39d4830812e5.png" alt="Konecta Logo">
+      </div>
+      <h2 style="font-size: 1.5rem; color: var(--text-color); margin-bottom: 12px;">Desktop Access Required</h2>
+      <p style="color: var(--text-color-secondary); font-size: 1rem; max-width: 320px; line-height: 1.5;">
+        KOMPASS is optimized for workstation use. <br>Please access this tool from a laptop or desktop computer.
+      </p>
+    </div>
+    
 
     <!-- App Loader -->
     <div id="app-loader">
