@@ -6427,6 +6427,26 @@ function loadMyProfile() {
 }
 
 function saveProfile() {
+  const sensitiveFields = ['iban', 'nationalId']; // Add fields that require approval
+  
+  // 1. Handle Standard Updates (Phone, Address, etc. - if you allow direct update)
+  // For Phase 2 compliance, let's say ALL changes might need approval, 
+  // or at least IBAN. Let's assume Address/Phone are still direct for now 
+  // but IBAN triggers the new flow.
+  
+  const iban = document.getElementById('prof-iban').value;
+  const originalIban = document.getElementById('prof-iban').getAttribute('data-original'); // You need to store original on load
+
+  if (iban && iban !== originalIban) {
+     if(confirm("Changing IBAN requires HR approval. Submit request?")) {
+        google.script.run
+          .withSuccessHandler(alert)
+          .webSubmitDataChangeRequest('IBAN', iban, "User Request via Profile");
+     }
+  }
+  
+  
+  
   const formData = {
     phone: document.getElementById('prof-phone').value,
     address: document.getElementById('prof-address').value,
