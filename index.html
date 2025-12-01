@@ -3003,22 +3003,22 @@ body.dark-mode .status-offline { background-color: #374151; color: #9ca3af; }
       }
       // === TAB SWITCHING FUNCTION ===
 function showTab(tabName) {
-  // Hide all panels
+  // 1. Hide all panels
   document.querySelectorAll('.tab-panel').forEach(panel => {
     panel.style.display = 'none';
   });
 
-  // Deactivate all tab buttons
+  // 2. Deactivate all tab buttons
   document.querySelectorAll('.tab-button').forEach(button => {
     button.classList.remove('active');
   });
 
-  // Clear all status messages
+  // 3. Clear all status messages
   document.querySelectorAll('.status-message').forEach(div => {
     div.classList.remove('visible', 'success', 'error', 'processing');
   });
 
-  // Show the correct panel and activate the correct button
+  // 4. Show the correct panel and activate the correct button
   const panel = document.getElementById(tabName + '-panel');
   const button = document.getElementById(tabName + '-tab-button');
   
@@ -3029,10 +3029,30 @@ function showTab(tabName) {
   if (allUsersList && allUsersList.length > 0) {
     
     if (tabName === 'admin-tools') {
+      // A. Populate Dropdowns
       populateAdminDropdown(allUsersList, selfUserName, 'manual-punch-user', 'Select User');
       populateAdminDropdown(allUsersList, selfUserName, 'balance-user-select', 'Select User');
       populateAdminDropdown(allUsersList, selfUserName, 'admin-leave-user', 'Select User');
       populateAdminDropdown(allUsersList, selfUserName, 'offboard-user-select', 'Select Employee');
+
+      // B. INNER SECURITY CHECK (The Fix)
+      // Check the attribute we set in populateUserInfo
+      const canManageBalances = document.body.getAttribute('data-perm-balances') === 'true'; 
+
+      if (canManageBalances) {
+          document.getElementById('break-config-section').style.display = 'block';
+          document.getElementById('balance-adjustment-section').style.display = 'block';
+          // Also show the admin leave form if they have balance permissions (usually Admins)
+          document.getElementById('admin-leave-form').style.display = 'block';
+      } else {
+          document.getElementById('break-config-section').style.display = 'none';
+          document.getElementById('balance-adjustment-section').style.display = 'none';
+          // Hide admin leave form for Managers (they should use Approvals tab, not submit on behalf)
+          document.getElementById('admin-leave-form').style.display = 'none';
+      }
+      
+      // Load data only if visible
+      if(canManageBalances) loadBreakConfig();
     
     } else if (tabName === 'reporting-line') {
       populateAdminDropdown(allUsersList, selfUserName, 'reporting-line-user', 'Select User to Move');
@@ -3047,7 +3067,6 @@ function showTab(tabName) {
     
     } else if (tabName === 'history-report') {
       populateAdminDropdown(allUsersList, selfUserName, 'history', 'Select Users');
-      // Ensure container is visible (Fix for "History Report not showing user select")
       const histContainer = document.getElementById('history-user-select-container');
       if(histContainer) histContainer.style.display = 'block';
     
@@ -3055,48 +3074,21 @@ function showTab(tabName) {
       loadPerformanceTab();
     
     } else if (tabName === 'hr-admin') {
-      loadHrAdmin(); // New Phase 7 Function
+      loadHrAdmin();
+      
     } else if (tabName === 'overtime') {
-    loadOvertimeTab();
-    // [index.html] Inside showTab(tabName) function
-
-    } else if (tabName === 'admin-tools') {
-      // Initialize Dropdowns
-      populateAdminDropdown(allUsersList, selfUserName, 'manual-punch-user', 'Select User');
-      populateAdminDropdown(allUsersList, selfUserName, 'balance-user-select', 'Select User');
-      populateAdminDropdown(allUsersList, selfUserName, 'admin-leave-user', 'Select User');
+      loadOvertimeTab();
       
-      // --- INNER SECURITY CHECK ---
-      // Get permissions from the user object stored globally or accessible scope
-      // We assume `userPermissions` is a global list populated during getUserInfo
-      // If not global, we rely on the backend to reject unauthorized saves.
-      
-      // VISUAL HIDING:
-      // Hide Break Config if they don't have permission (e.g. Managers)
-      // Note: We need to pass permissions to showTab or store them globally. 
-      // Assuming you create a global var 'currentUserPermissions' in populateUserInfo:
-      
-      const canManageBalances = document.body.getAttribute('data-perm-balances') === 'true'; 
-      // (See Step 4 for how to set this attribute)
-
-      if (canManageBalances) {
-          document.getElementById('break-config-section').style.display = 'block';
-          document.getElementById('balance-adjustment-section').style.display = 'block';
-      } else {
-          document.getElementById('break-config-section').style.display = 'none';
-          document.getElementById('balance-adjustment-section').style.display = 'none';
-      }
-      
-      loadBreakConfig();
-    
     } else if (tabName === 'finance-admin') {
-      // NEW: Initialize the User Multi-Select for Finance
       populateAdminDropdown(allUsersList, selfUserName, 'finance-apply', 'Select Target Users');
       loadEntitlementTemplates();
+    
+    } else if (tabName === 'analytics') {
+      loadAnalyticsTab();
     }
   }
 
-  // Refresh specific tab data
+  // --- REFRESH DATA FOR SPECIFIC TABS ---
   if (tabName === 'leave-request') {
     loadMyRequests();
     google.script.run.withSuccessHandler(user => {
@@ -3117,12 +3109,10 @@ function showTab(tabName) {
     loadAnnouncements_Admin();
   } else if (tabName === 'recruitment') {
     loadRecruitmentAdmin();
-  }else if (tabName === 'offboarding') {
-       loadOffboardingTab();
-     } else if (tabName === 'analytics') {
-    loadAnalyticsTab();
+  } else if (tabName === 'offboarding') {
+    loadOffboardingTab();
   }
-}      
+}    
       // --- Refresh User Info ---
       function refreshCurrentData() {
         const btn = document.getElementById('header-refresh-button');
@@ -3166,19 +3156,29 @@ function showTab(tabName) {
       }
 
 function populateUserInfo(user) {
+  // --- 1. DEFINE HELPER FUNCTIONS FIRST (Critical Fix) ---
+  const can = (perm) => user.permissions && user.permissions.includes(perm);
+
+  const setDisplay = (id, condition) => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = condition ? 'inline-block' : 'none';
+  };
+
+  // --- 2. VALIDATE USER ---
   const infoDiv = document.getElementById('agent-info');
   if (!user || !user.name) {
     infoDiv.innerHTML = "Your email is not registered.";
     infoDiv.className = 'error'; 
     return;
   }
-  // --- NEW PHASE 3: Update Break Rules from Backend ---
+
+  // --- 3. LOAD CONFIGURATION ---
   if (user.breakRules) {
     PLANNED_BREAK_SECONDS = user.breakRules.break1; 
     PLANNED_LUNCH_SECONDS = user.breakRules.lunch;
     OT_PRE_THRESHOLD = user.breakRules.otPre;
     OT_POST_THRESHOLD = user.breakRules.otPost;
-    console.log(`Rules Loaded: Break=${PLANNED_BREAK_SECONDS}s, Lunch=${PLANNED_LUNCH_SECONDS}s, OT_Pre=${OT_PRE_THRESHOLD}s, OT_Post=${OT_POST_THRESHOLD}s`);
+    console.log(`Rules Loaded: Break=${PLANNED_BREAK_SECONDS}s, Lunch=${PLANNED_LUNCH_SECONDS}s`);
   }
 
   selfUserName = user.name; 
@@ -3186,10 +3186,12 @@ function populateUserInfo(user) {
   allUsersList = user.allUsers; 
   allAdminsList = user.allAdmins; 
   
+  // Set Attributes (Now safe because 'can' is defined above)
   document.body.setAttribute('data-role', user.role);
   document.body.setAttribute('data-perm-balances', can('MANAGE_BALANCES'));
   document.body.setAttribute('data-perm-hr', can('MANAGE_HR_DATA'));
   
+  // --- 4. HANDLE PENDING USERS ---
   if (user.accountStatus === 'Pending') {
     infoDiv.innerHTML = `<strong>Status:</strong> Pending Approval`;
     document.getElementById('app-sidebar').style.display = 'none';
@@ -3199,61 +3201,48 @@ function populateUserInfo(user) {
     return;
   }
 
+  // --- 5. UPDATE UI FOR ACTIVE USERS ---
   infoDiv.innerHTML = `<strong>User:</strong> ${user.name} | <strong>Role:</strong> ${user.role}`;
   infoDiv.className = '';
   
   document.getElementById('buttons').style.display = 'block';
   document.getElementById('other-buttons').style.display = 'block';
 
-// --- PERMISSIONS LOGIC ---
-  const can = (perm) => user.permissions && user.permissions.includes(perm);
-
-  // Helper to show/hide elements
-  const setDisplay = (id, condition) => {
-      const el = document.getElementById(id);
-      if(el) el.style.display = condition ? 'inline-block' : 'none';
-  };
-
-  // --- A. GENERAL AGENT TABS (Usually visible to all, but you can gate them if needed) ---
+  // --- 6. TAB VISIBILITY LOGIC ---
+  // General Agent Tabs
   setDisplay('my-schedule-tab-button', true);
   setDisplay('history-report-tab-button', true);
   setDisplay('coaching-tab-button', true);
   setDisplay('overtime-tab-button', true); 
   
-  // --- B. MANAGEMENT TABS ---
+  // Management Tabs
   setDisplay('dashboard-tab-button',      can('VIEW_FULL_DASHBOARD'));
   setDisplay('leave-approval-tab-button', can('APPROVE_LEAVE'));
   setDisplay('reporting-line-tab-button', can('MANAGE_HIERARCHY'));
 
-  // --- C. ADMIN & HR TABS ---
-  // Now purely driven by CSV. No more "&& user.role !== 'agent'" checks.
+  // Admin & HR Tabs
   setDisplay('finance-admin-tab-button',       can('MANAGE_FINANCE'));
-  setDisplay('analytics-tab-button',           can('VIEW_ANALYTICS')); // Ensure this ID matches your HTML
+  setDisplay('analytics-tab-button',           can('VIEW_ANALYTICS'));
   setDisplay('schedule-tab-button',            can('EDIT_SCHEDULE'));
   setDisplay('project-admin-tab-button',       can('MANAGE_PROJECTS'));
   
-  // Admin Tools is special: It's a container for Manual Punch, Break Config, etc.
-  [cite_start]// We show the tab if the user has at least one of the sub-permissions[cite: 1505].
+  // Admin Tools (Visible if user has any sub-permission)
   setDisplay('admin-tools-tab-button',         can('ACCESS_ADMIN_TOOLS') || can('PUNCH_OTHERS') || can('MANAGE_BALANCES'));
 
   setDisplay('coaching-admin-tab-button',      can('MANAGE_TEMPLATES'));
   setDisplay('registration-admin-tab-button',  can('HIRE_EMPLOYEE'));
   setDisplay('announcements-admin-tab-button', can('MANAGE_ANNOUNCEMENTS'));
   setDisplay('recruitment-tab-button',         can('MANAGE_RECRUITMENT'));
-  setDisplay('hr-admin-tab-button',            can('MANAGE_HR_DATA')); // New permission for PII editing
+  setDisplay('hr-admin-tab-button',            can('MANAGE_HR_DATA'));
 
-  // --- D. INTERNAL PANEL LOGIC (Inner Tab Security) ---
-  // Even if they can see the tab, hide specific sections if they lack specific rights.
-  
+  // --- 7. INTERNAL PANEL LOGIC ---
   if (can('PUNCH_OTHERS')) {
       document.getElementById('admin-panel').style.display = 'block';
-      // Auto-select self for convenience
       populateAdminDropdown(allUsersList, selfUserName, 'agent-select', 'Select User', user.email);
   } else {
       document.getElementById('admin-panel').style.display = 'none';
   }
   
-  // Schedule Editor Dropdown
   if (can('EDIT_SCHEDULE')) {
       populateAdminDropdown(allUsersList, selfUserName, 'schedule-agent-select', 'Select a user');
   }
